@@ -1,0 +1,221 @@
+model: avocodo
+model_kwargs:
+    channels_enc: 64
+    channels_dec: 96
+    n_fft_base: 64
+    n_residual_enc: 2
+    n_residual_dec: 3
+    res_scale_enc: 0.5773502691896258
+    res_scale_dec: 0.5773502691896258
+    strides: [8, 5, 4, 2]
+    kernel_size: 5
+    last_kernel_size: 5
+    residual_kernel_size: 5
+    dilation_base: 1
+    skip: identity
+    final_activation: Tanh
+    act_all: False
+    encoder_l2norm: True
+    spec: stft
+    spec_layer: 1x1_zero
+    spec_compression: log
+    spec_learnable: False
+    pad_mode: constant
+    causal: True
+
+    vq_kwargs:
+        dim: 128
+        codebook_size: 1024     # 16kHz 기준, 1개당 0.5kbps
+        num_quantizers: 12
+        kmeans_init: True
+        decay: 0.99
+        ema_num_threshold: 0.5
+        ema_num_initial: 0.5
+        dropout: True
+        dropout_index: [2, 4, 8, 12]  # 1.5, 3, 6, 9 kbps
+disc_kwargs:
+    combd_kwargs:
+        use: True
+        h:
+            combd_h_u:
+                - [16, 64, 256, 1024, 1024, 1024]
+                - [16, 64, 256, 1024, 1024, 1024]
+                - [16, 64, 256, 1024, 1024, 1024]
+            combd_d_k:
+                - [7, 11, 11, 11, 11, 5]
+                - [11, 21, 21, 21, 21, 5]
+                - [15, 41, 41, 41, 41, 5]
+            combd_d_s:
+                - [1, 1, 4, 4, 4, 1]
+                - [1, 1, 4, 4, 4, 1]
+                - [1, 1, 4, 4, 4, 1]
+            combd_d_d:
+                - [1, 1, 1, 1, 1, 1]
+                - [1, 1, 1, 1, 1, 1]
+                - [1, 1, 1, 1, 1, 1]
+            combd_d_g:
+                - [1, 4, 16, 64, 256, 1]
+                - [1, 4, 16, 64, 256, 1]
+                - [1, 4, 16, 64, 256, 1]
+            combd_d_p:
+                - [3, 5, 5, 5, 5, 2]
+                - [5, 10, 10, 10, 10, 2]
+                - [7, 20, 20, 20, 20, 2]
+            combd_op_f: [1, 1, 1]
+            combd_op_k: [3, 3, 3]
+            combd_op_g: [1, 1, 1]
+            pqmf_config:
+                lv1: [2, 256, 0.25, 10.0]
+                lv2: [8, 256, 0.067, 10.0]
+    sbd_kwargs:
+        use: True
+        h:
+            sbd_filters:
+                - [64, 128, 256, 256, 256]
+                - [64, 128, 256, 256, 256]
+                - [64, 128, 256, 256, 256]
+                - [32, 64, 128, 128, 128]
+            sbd_strides:
+                - [1, 1, 3, 3, 1]
+                - [1, 1, 3, 3, 1]
+                - [1, 1, 3, 3, 1]
+                - [1, 1, 3, 3, 1]
+            sbd_kernel_sizes:
+                - [[7, 7, 7],[7, 7, 7],[7, 7, 7],[7, 7, 7],[7, 7, 7]]
+                - [[5, 5, 5],[5, 5, 5],[5, 5, 5],[5, 5, 5],[5, 5, 5]]
+                - [[3, 3, 3],[3, 3, 3],[3, 3, 3],[3, 3, 3],[3, 3, 3]]
+                - [[5, 5, 5],[5, 5, 5],[5, 5, 5],[5, 5, 5],[5, 5, 5]]
+            sbd_dilations:
+                - [[5, 7, 11], [5, 7, 11], [5, 7, 11], [5, 7, 11], [5, 7, 11]]
+                - [[3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7]]
+                - [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
+                - [[1, 2, 3], [1, 2, 3], [1, 2, 3], [2, 3, 5], [2, 3, 5]]
+            sbd_band_ranges:
+                - [0, 6]
+                - [0, 11]
+                - [0, 16]
+                - [0, 64]
+            sbd_transpose:
+                - False
+                - False
+                - False
+                - True
+            pqmf_config:
+                sbd: [16, 256, 0.03, 10.0]
+                fsbd: [64, 256, 0.1, 9.0]
+            segment_size: 24000
+pqmf_config:
+    lv1: [2, 256, 0.25, 10.0]
+    lv2: [8, 256, 0.067, 10.0]
+data:
+    dataset: 
+        train: DirectoriesDataset
+        valid: Dataset
+        infer: Dataset
+        pesq: Dataset
+    classes:
+        clean:
+            directories_to_include:
+                - "/home/shahn/Datasets/DNS-Challenge4/datasets_24khz/clean"
+                - "/home/shahn/Datasets/VCTK-0.92/wav24_silence_trimmed"
+            directories_to_exclude:
+                - "/home/shahn/Datasets/VCTK-0.92/wav24_silence_trimmed/p225"
+                - "/home/shahn/Datasets/VCTK-0.92/wav24_silence_trimmed/p226"
+                - "/home/shahn/Datasets/VCTK-0.92/wav24_silence_trimmed/p227"
+                - "/home/shahn/Datasets/VCTK-0.92/wav24_silence_trimmed/p228"
+            extension: ".wav"
+            probability: 0.67
+            mix:
+                noise: 0.5      # mix with noise with a probability of 0.3
+        noise:
+            directories_to_include:
+                - "/home/shahn/Datasets/DNS-Challenge4/datasets_24khz/noise"
+            extension: ".wav"
+            probability: 0.0
+        music:
+            directories_to_include:
+                - "/home/shahn/Datasets/jamendo/raw_30s_24khz"
+            directories_to_exclude:
+                - "/home/shahn/Datasets/jamendo/raw_30s_24kHz/99"
+            extension: ".wav"
+            probability: 0.33
+    transforms:
+        RandomGain:
+            low_db: -10
+            high_db: 6
+    length: 150000
+    wav_dir: "/home/shahn/Datasets"
+    data_dir: ""
+    extension: ""
+    num_infer: 6
+    filelists:
+        valid: "filelists/DNS_VCTK_jamendo_valid_24khz.txt"
+        infer: "filelists/infer_24khz.txt"
+        pesq: "filelists/DNS_VCTK_jamendo_pesq_24khz.txt"
+    filter:
+        train: False
+        valid: False
+        pesq: True
+    segment_size: 24000
+    sampling_rate: 24000
+    normalize_method: "random_gain"
+    random_gain_low: 0.316      # -10 dB
+    random_gain_high: 2.0       # +6 dB
+    channels: 1
+    n_fft: 1024
+    num_mels: 80
+    hop_size: 256
+    win_size: 1024
+    clip_val: 1.0e-5
+train:
+    disc_lr_ratio: null
+    batch_size: 12
+    max_epochs: 50
+    fp16: True
+    num_workers: 4
+    persistent_workers: True
+    clip_grad: null
+    seed: 1
+    plot_param_and_grad: True
+    save_interval: 1
+    lookahead: 0
+    infer_n: 4     # 'n' of ResidualVQ for infer & pesq. 4 = 3kbps
+    
+    use_lsgan: True                 # We follow the original paper
+    use_normalized_fm_loss: False   # We follow the original paper
+
+    balancer_kwargs:
+        weights:                    # We follow the original paper
+            freq: 45
+            combd_g: 1.0
+            combd_fm: 2.0
+            sbd_g: 1.0
+            sbd_fm: 2.0
+        weight_others: 0.01
+
+    optimizer: "AdamP"
+    optimizer_kwargs:
+        lr: 5.0e-4
+        betas: [0.5, 0.9]
+        weight_decay: 1.0e-5
+    scheduler: CosineAnnealingWarmup
+    scheduler_kwargs:
+        warmup_iterations: 5000
+        eta_min: 1.0e-6
+        warn: False
+valid:
+    batch_size: 20
+infer:
+    interval: 10
+    batch_size: 1
+pesq:
+    interval: 1000
+    batch_size: 4
+    persistent_workers: False
+    num_workers: 0
+    num_workers_executor: 16    # num_workers for a multiprocess executor
+    metrics_to_calculate:
+        pesq: False
+        stoi: False
+        visqol: False
+        visqol_audio: True

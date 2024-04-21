@@ -1,0 +1,6 @@
+VCTK-0.92/wav24_silence_trimmed/p225/p225_002_mic1.wav
+KSS/kss/3/3_0008.wav
+LibriTTS/test-clean/237/126133/237_126133_000002_000004.wav
+LibriTTS/test-clean/260/123286/260_123286_000005_000001.wav
+LibriTTS/test-clean/672/122797/672_122797_000002_000002.wav
+LibriTTS/test-clean/908/31957/908_31957_000011_000000.wav
