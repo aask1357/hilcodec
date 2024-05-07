@@ -14,7 +14,7 @@ import librosa
 import soundfile as sf
 
 
-PATH = "/home/shahn/Datasets/LibriSpeech/test-clean/2094/142345/2094-142345-0010.flac"
+PATH = "onnx/input_speech.wav"
 
 
 class Timer:
@@ -73,7 +73,6 @@ def encoder(name: str, hop_size: int, num_quantizers: int, timer: Timer, sr: int
     indices_list = [[] for _ in range(num_quantizers)]
     timer.tic()
     for i in tqdm(range(0, length, hop_size), desc="Enc+Q", ncols=80):
-    # for i in range(0, length, hop_size):
         # Encoder
         enc_input["wav_in"] = wav[:, :, i:i+hop_size]
         out = enc.run(None, enc_input)

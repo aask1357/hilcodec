@@ -17,7 +17,6 @@ from torch import Tensor
 from . import (
     SConv1d,
     SConvTranspose1d,
-    SLSTM,
     CausalSTFT
 )
 
@@ -27,7 +26,7 @@ from functional import STFT
 def dws_conv_block(
     act: nn.Module, activation_params: dict, in_chs: int, out_chs: int, kernel_size: int,
     stride: int = 1, dilation: int = 1, norm: str = "weight_norm", norm_params: dict = {},
-    causal: bool = False, pad_mode: str = 'reflect', act_all: bool = False,
+    causal: bool = False, pad_mode: str = 'constant', act_all: bool = False,
     transposed: bool = False, expansion: int = 1, groups: int = -1, bias: bool = True,
 ) -> tp.List[nn.Module]:
     block = [
@@ -75,7 +74,7 @@ class SEANetResnetBlock(nn.Module):
         dilations: tp.List[int] = [1, 1], activation: str = 'ELU',
         activation_params: dict = {'alpha': 1.0},  norm: str = 'weight_norm',
         norm_params: tp.Dict[str, tp.Any] = {}, causal: bool = False,
-        pad_mode: str = 'reflect', skip: str = '1x1',
+        pad_mode: str = 'constant', skip: str = '1x1',
         act_all : bool = False, expansion: int = 1, groups: int = -1, bias: bool = True,
         res_scale: tp.Optional[float] = None, idx: int = 0, zero_init: bool = True,
     ):
@@ -181,14 +180,13 @@ class Scale(nn.Module):
 
 class SpecBlock(nn.Module):
     def __init__(
-        self, spec: str, spec_layer: str, spec_compression: str,
+        self, spec: str, spec_compression: str,
         n_fft: int, channels: int, stride: int, norm: str, norm_params: tp.Dict[str, tp.Any],
         bias: bool, pad_mode: str, learnable: bool, causal: bool = True,
         mean: float = 0.0, std: float = 1.0, res_scale: tp.Optional[float] = 1.0,
         zero_init: bool = True, inout_norm: bool = True,
     ) -> None:
         super().__init__()
-        self.clip = False
         self.learnable = learnable
         if spec == "stft":
             if causal:
@@ -214,16 +212,10 @@ class SpecBlock(nn.Module):
         self.mean, self.std = mean, std
         self.scale = res_scale
         self.scale_param = None
-        if spec_layer == "1x1":
-            self.layer = SConv1d(n_fft//2+1, channels, 1, norm=norm, norm_kwargs=norm_params,
-                                 bias=bias, pad_mode=pad_mode)
-        elif spec_layer == "1x1_zero":
-            self.layer = SConv1d(n_fft//2+1, channels, 1, norm=norm, norm_kwargs=norm_params,
-                                 bias=bias, pad_mode=pad_mode)
-            if zero_init:
-                self.scale_param = nn.Parameter(torch.zeros(1))
-        else:
-            raise RuntimeError(spec_layer)
+        self.layer = SConv1d(n_fft//2+1, channels, 1, norm=norm, norm_kwargs=norm_params,
+                             bias=bias, pad_mode=pad_mode)
+        if zero_init:
+            self.scale_param = nn.Parameter(torch.zeros(1))
 
     def forward(self, x: Tensor, wav: Tensor) -> Tensor:
         if self.spec is None:
@@ -263,10 +255,10 @@ class SEANetEncoder(nn.Module):
         norm: str = 'weight_norm', norm_params: tp.Dict[str, tp.Any] = {},
         kernel_size: int = 7, last_kernel_size: int = 7, residual_kernel_size: int = 3,
         dilation_base: int = 2, skip: str = '1x1',
-        causal: bool = False, pad_mode: str = 'reflect',
+        causal: bool = False, pad_mode: str = 'constant',
         act_all: bool = False, expansion: int = 1, groups: int = -1,
         l2norm: bool = False, bias: bool = True, spec: str = "stft",
-        spec_layer: str = "1x1", spec_compression: str = "",
+        spec_compression: str = "",
         spec_learnable: bool = False,
         res_scale: tp.Optional[float] = None,
         wav_std: float = 0.1122080159,
@@ -317,7 +309,7 @@ class SEANetEncoder(nn.Module):
             
             # add spectrogram layer
             spec_block = SpecBlock(
-                spec, spec_layer, spec_compression, mult*n_fft_base, mult*n_filters, stride,
+                spec, spec_compression, mult*n_fft_base, mult*n_filters, stride,
                 norm, norm_params, bias=False, pad_mode=pad_mode,
                 learnable=spec_learnable, causal=causal,
                 mean=spec_means[block_idx], std=spec_stds[block_idx], res_scale=res_scale,
@@ -349,7 +341,7 @@ class SEANetEncoder(nn.Module):
             mult *= 2
 
         self.spec_post = SpecBlock(
-            spec, spec_layer, spec_compression, mult*n_fft_base, mult*n_filters,
+            spec, spec_compression, mult*n_fft_base, mult*n_filters,
             stride, norm, norm_params, bias=False, pad_mode=pad_mode,
             learnable=spec_learnable, causal=causal,
             mean=spec_means[-1], std=spec_stds[-1], res_scale=res_scale, zero_init=zero_init,
@@ -394,7 +386,7 @@ class SEANetDecoder(nn.Module):
         norm: str = 'weight_norm', norm_params: tp.Dict[str, tp.Any] = {},
         kernel_size: int = 7, last_kernel_size: int = 7, residual_kernel_size: int = 3,
         dilation_base: int = 2, skip: str = '1x1',
-        causal: bool = False, pad_mode: str = 'reflect', trim_right_ratio: float = 1.0,
+        causal: bool = False, pad_mode: str = 'constant', trim_right_ratio: float = 1.0,
         final_activation: tp.Optional[str] = None,
         final_activation_params: tp.Optional[dict] = None,
         act_all: bool = False, expansion: int = 1, groups: int = -1, bias: bool = True,

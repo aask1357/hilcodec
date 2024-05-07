@@ -26,8 +26,8 @@ class EuclideanCodebook(nn.Module):
     __constants__ = ['codebook_size', 'eps', 'ema_num_initial']
     def __init__(
         self,
-        dim: int,
-        codebook_size: int,
+        dim: int = 128,
+        codebook_size: int = 1024,
         kmeans_init: bool = False,
         kmeans_iters: int = 20,
         decay: float = 0.8,
@@ -37,8 +37,7 @@ class EuclideanCodebook(nn.Module):
     ):
         super().__init__()
         self.decay = decay
-        init_fn = torch.randn if not kmeans_init else torch.zeros
-        embed = init_fn(codebook_size, dim)
+        embed = torch.randn(codebook_size, dim)
 
         self.codebook_size = codebook_size
         self.eps = eps
@@ -53,7 +52,7 @@ class EuclideanCodebook(nn.Module):
         # x.dtype: float16 / embed.dtype: float32 / device: cuda{rank}
         B, T, C = x.shape
         flatten = x.reshape(B * T, C)
-        embed = self.embed.t()                          # [Channel, codebook_size]
+        embed = self.embed.t()          # [Channel, codebook_size]
 
         # distance: [Batch x Time, codebook_size]
         distance = -(
@@ -64,87 +63,98 @@ class EuclideanCodebook(nn.Module):
 
         embed_ind = distance.max(dim = -1).indices
         embed_ind = embed_ind.view(B, T)
-        quantize = F.embedding(embed_ind, self.embed)
+        quantized = F.embedding(embed_ind, self.embed)  # [B, T, C]
 
-        return quantize
-
-    def encode(self, x: Tensor) -> Tensor:
-        # x.dtype: float16 / embed.dtype: float32 / device: cuda{rank}
-        B, T, C = x.shape
-        flatten = x.reshape(B * T, C, 1)    # [BxT, Channel, 1]
-        embed = self.embed.t().unsqueeze(0) # [1, Channel, codebook_size]
-
-        # distance: [Batch x Time, codebook_size]
-        # distance = -(
-        #     flatten.pow(2).sum(1, keepdim=True)
-        #     - 2 * flatten @ embed
-        #     + embed.pow(2).sum(0, keepdim=True)
-        # )
-        distance = -(flatten - embed).pow(2).sum(1) # [BxT, codebook_size]
-        
-        embed_ind = distance.max(dim = -1).indices
-        return embed_ind.view(B, T)
-
+        return quantized, embed_ind
+    
     def decode(self, embed_ind: Tensor) -> Tensor:
-        return F.embedding(embed_ind, self.embed)
-
-
-class VectorQuantize(nn.Module):
-    def __init__(self, **kwargs):
-        super().__init__()
-        self._codebook = EuclideanCodebook(**kwargs)
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = x.transpose(1, 2)   # [B, C, T] -> [B, T, C]
-        quantize: Tensor = self._codebook(x)
-        return quantize.transpose(1, 2)
+        quantized = F.embedding(embed_ind, self.embed)
+        return quantized
 
 
 class ResidualVQ(nn.Module):
     """ Follows Algorithm 1. in https://arxiv.org/pdf/2107.03312.pdf """
     def __init__(
         self,
-        num_quantizers: int,
+        num_quantizers: int = 16,
         dropout: bool = False,
         dropout_index: Optional[List[int]] = None,
         **kwargs
     ):
         super().__init__()
         self.layers = nn.ModuleList([
-            VectorQuantize(**kwargs) for _ in range(num_quantizers)
+            EuclideanCodebook(**kwargs) for _ in range(num_quantizers)
         ])
 
     def forward(self, x: Tensor, n: int) -> Tensor:
-        quantized_out = torch.zeros_like(x)
-
+        # x: [B, T, C]
         residual = x
-        for layer in self.layers[:n]:
-            quantized = layer(residual)
-            residual = residual - quantized
-            quantized_out = quantized_out + quantized
-        
-        return quantized_out
-
-    def encode(self, x: Tensor, n: int) -> Tensor:
-        quantized_out = torch.zeros_like(x)
+        quantized_out = torch.zeros_like(residual)
         indices = []
-        residual = x
         for layer in self.layers[:n]:
-            idx = layer.encode(residual)        # [B, T]
-            quantized = layer.decode(idx)       # [B, C, T]
+            quantized, index = layer(residual)
             residual = residual - quantized
             quantized_out = quantized_out + quantized
-            indices.append(idx)
-        indices = torch.stack(indices, dim=0)   # [N, B, T]
+            indices.append(index)
         
-        return indices
-    
-    def decode(self, indices: Tensor) -> Tensor:
-        quantized_out = torch.zeros_like(indices)
-        for idx, layer in zip(indices, self.layers):
-            quantized = layer.decode(idx)
-            quantized_out = quantized_out + quantized
-        return quantized_out
+        return torch.stack(indices, dim=0)  # [n, B, T]
+
+
+class EuclideanCodebookDeq(nn.Module):
+    __constants__ = ['codebook_size', 'eps', 'ema_num_initial']
+    def __init__(
+        self,
+        dim: int = 128,
+        codebook_size: int = 1024,
+        kmeans_init: bool = False,
+        kmeans_iters: int = 20,
+        decay: float = 0.8,
+        eps: float = 1e-7,
+        ema_num_threshold: float = 0.0,
+        ema_num_initial: float = 1.0,
+    ):
+        super().__init__()
+        self.decay = decay
+        embed = torch.randn(codebook_size, dim)
+
+        self.codebook_size = codebook_size
+        self.eps = eps
+        self.ema_num_initial = ema_num_initial
+
+        self.register_buffer('embed', embed)
+        self.register_buffer('ema_num', torch.ones(codebook_size) * ema_num_initial)
+        self.embed: Tensor
+        self.ema_num: Tensor
+
+    def forward(self, embed_ind: Tensor) -> Tensor:
+        quantized = F.embedding(embed_ind, self.embed)
+        return quantized
+
+
+class Dequantizer(nn.Module):
+    """ Follows Algorithm 1. in https://arxiv.org/pdf/2107.03312.pdf """
+    def __init__(
+        self,
+        num_quantizers: int = 16,
+        dropout: bool = False,
+        dropout_index: Optional[List[int]] = None,
+        **kwargs
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList([
+            EuclideanCodebookDeq(**kwargs) for _ in range(num_quantizers)
+        ])
+
+    def forward(self, indices: Tensor, n: int) -> Tensor:
+        # indices: [n, B, T]
+        out = torch.zeros(1, dtype=torch.float32, device=indices.device)
+        for i in range(n):
+            layer = self.layers[i]
+            index = indices[i]
+            quantized = layer(index)
+            out = out + quantized
+        
+        return out      # [B, C, T]
 
 
 class DWSBlock(nn.Module):
@@ -187,9 +197,9 @@ class ResBlock(nn.Module):
         self, dim: int, kernel_size: int = 3,
         dilations: tp.List[int] = [1, 1], activation: str = 'ELU',
         activation_params: dict = {'alpha': 1.0},  norm: str = 'weight_norm',
-        compress: int = 2, skip: str = '1x1',
+        compress: int = 2,
         act_all : bool = False, expansion: int = 1, groups: int = -1, bias: bool = True,
-        res_scale: tp.Optional[float] = None,
+        res_scale: float = 1.0, idx: int = 0,
     ):
         super().__init__()
         act = getattr(nn, activation)
@@ -197,6 +207,7 @@ class ResBlock(nn.Module):
         block = []
         inplace_act_params = activation_params.copy()
         inplace_act_params["inplace"] = True
+        self.pre_scale = (1 + idx * res_scale**2)**-0.5
         for i, dilation in enumerate(dilations):
             in_chs = dim if i == 0 else hidden
             out_chs = dim if i == len(dilations) - 1 else hidden
@@ -215,26 +226,28 @@ class ResBlock(nn.Module):
                 bias=bias,
             ))
         self.block = nn.ModuleList(block)
-        self.shortcut: nn.Module
-        
-        self.scale = None
-        if skip == "identity":
-            self.shortcut = nn.Identity()
-        elif skip == "1x1":
-            self.shortcut = SConv1d(dim, dim, kernel_size=1, norm=norm,
-                                    bias=bias)
-        elif skip == "scale":
-            self.scale = nn.Parameter(torch.ones(1, 1, 1))
-        elif skip == "channelwise_scale":
-            self.scale = nn.Parameter(torch.ones(1, dim, 1))
         
         self.res_scale = res_scale
+        self.res_scale_param = nn.Parameter(torch.zeros(1))
+        self.merged = False
     
     def initialize_cache(self, x: Tensor) -> tp.List[Tensor]:
         cache: tp.List[Tensor] = []
         for block in self.block:
             cache.append(block.initialize_cache(x))
         return cache
+    
+    def merge_scaling(self) -> None:
+        '''Called after remove_weight_norm.
+        Merge res_scale and res_scale_param into self.block[-1].depthwise
+        y = (W @ x + b) * scale <=> y = (W*scale) @ x + (b*scale)
+        '''
+        scale = self.res_scale * self.res_scale_param.data
+        conv = self.block[-1].depthwise
+        conv.weight.data.mul_(scale)
+        if conv.bias is not None:
+            conv.bias.data.mul_(scale)
+        self.merged = True
 
     def forward(
         self,
@@ -243,95 +256,130 @@ class ResBlock(nn.Module):
     ) -> tp.Tuple[Tensor, tp.List[Tensor]]:
         new_cache: tp.List[Tensor] = []
         skip = x
+        
+        # pre_scale
+        x = x * self.pre_scale
+        
+        # block
         for idx, block in enumerate(self.block):
             x, cache_idx = block(x, cache[idx])
             new_cache.append(cache_idx)
-        if self.res_scale is not None:
-            x.mul_(self.res_scale)
-        if self.scale is not None:
-            x.addcmul_(self.scale, skip)    # self.block(x) + self.scale * x
-        else:
-            x.add_(self.shortcut(skip))        # self.block(x) + x
+        
+        # residual scale
+        if not self.merged:
+            scale = self.res_scale * self.res_scale_param.data
+            x.mul_(scale)
+        
+        # residual
+        x.add_(skip)
         return x, new_cache
 
 
 class L2Norm(nn.Module):
-    def __init__(self, eps: float = 1e-12):
+    def __init__(self, channels: int, eps: float = 1e-12):
         super().__init__()
         self.eps = eps
+        self.scale = channels ** 0.5
     
     def forward(self, x: Tensor) -> Tensor:
-        return nn.functional.normalize(x, p=2.0, dim=1, eps=self.eps)
+        return nn.functional.normalize(x, p=2.0, dim=1, eps=self.eps).mul_(self.scale)
 
 
 class Scale(nn.Module):
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, value: float = 1.0,
+                 learnable: bool = True, inplace: bool = False):
         super().__init__()
-        self.scale = nn.Parameter(torch.ones(1, dim, 1))
+        if learnable:
+            self.scale = nn.Parameter(torch.ones(1, dim, 1) * value)
+        else:
+            self.scale = value
+        self.inplace = inplace
     
     def forward(self, x: Tensor) -> Tensor:
+        if self.inplace:
+            return x.mul_(self.scale)
         return self.scale * x
 
 
 class SpecBlock(nn.Module):
-    def __init__(self, spec: str, spec_layer: str, spec_compression: str,
-                 channels: int, stride: int,
-                 norm: str, bias: bool) -> None:
+    def __init__(
+        self, n_fft: int, channels: int, stride: int, norm: str, bias: bool,
+        mean: float = 0.0, std: float = 1.0, res_scale: float = 1.0
+    ) -> None:
         super().__init__()
-        if spec == "dct":
-            raise RuntimeError()
-        elif spec == "stft":
-            self.spec = CausalSTFT(n_fft=2*channels, hop_size=stride, magnitude=True)
-            in_channels = channels + 1
-        
-        if spec_compression == "log":
-            self.compression = "log"
-        elif spec_compression == "abs_log":
-            self.compression = "abs_log"
-        elif spec_compression == "":
-            self.compression = ""
-        else:
-            self.compression = float(spec_compression)
+        self.mean, self.std = mean, std
+        self.scale = res_scale
+        self.spec = CausalSTFT(n_fft=n_fft, hop_size=stride, magnitude=True)
+        in_channels = channels + 1
 
-        if spec_layer == "1x1":
-            self.layer = SConv1d(in_channels, channels, 1, norm=norm,
+        self.layer = SConv1d(n_fft//2+1, channels, 1, norm=norm,
                                  bias=bias)
-            self.clip = False
-        elif spec_layer == "scale":
-            self.layer = Scale(1)
-        elif spec_layer == "channelwise_scale":
-            self.layer = Scale(channels)
+        
+        self.scale_param = nn.Parameter(torch.zeros(1))
+        self.merged = False
+    
+    def merge_scaling(self) -> None:
+        '''Called after remove_weight_norm.
+        Merge inout_norm and scale into self.layer
+        '''
+        # inout_norm
+        # y = W @ (x - mean) / std + b
+        # <=> y = W/std @ x + (b - W @ mean/std)
+        if self.merged:
+            return
+        bias2 = self.layer.weight.data.sum((1, 2)).mul(-self.mean/self.std)
+        self.layer.weight.data.div_(self.std)
+        if self.layer.bias is not None:
+            self.layer.bias.data.add_(bias2)
+        else:
+            delattr(self.layer, 'bias')
+            self.layer.register_buffer('bias', bias2)
+        
+        # scale
+        # y = (W @ x + b) * scale
+        # <=> y = W @ x * scale + b * scale
+        scale = self.scale * self.scale_param.data
+        self.layer.weight.data.mul_(scale)
+        self.layer.bias.data.mul_(scale)
+        self.merged = True
 
     def forward(self, x: Tensor, wav: Tensor) -> Tensor:
         # spectrogram
         y = self.spec(wav)
 
         # compression
-        if self.compression == "log":
-            y = y.clamp_min(1e-5).log()
-        elif self.compression == "abs_log":
-            y = y.abs().clamp_min(1e-5).log()
-        elif self.compression == "":
-            pass
-        else:
-            y = y.sign() * y.abs().pow(self.compression)
+        y = y.clamp_min_(1e-5).log_()
+        
+        # normalize
+        if not self.merged:
+            y.sub_(self.mean).div_(self.std)
         
         # layer
-        return x + self.layer(y)
+        y = self.layer(y)
+        
+        # scaling
+        if not self.merged:
+            scale = self.scale * self.scale_param.data
+            y.mul_(scale)
+        
+        return y.add_(x)
 
 
 class Encoder(nn.Module):
     def __init__(
         self, channels: int = 1, dimension: int = 128, n_filters: int = 32,
         n_fft_base: int = 64,
-        n_residual_layers: int = 1, ratios: tp.List[int] = [8, 5, 4, 2],
+        n_residual_layers: int = 2, ratios: tp.List[int] = [8, 5, 4, 2],
         activation: str = 'ELU', activation_params: dict = {'alpha': 1.0},
         norm: str = 'weight_norm',
-        kernel_size: int = 7, last_kernel_size: int = 7, residual_kernel_size: int = 3,
-        skip: str = '1x1', act_all: bool = False,
-        l2norm: bool = False, bias: bool = True, spec: str = "dct",
-        spec_layer: str = "1x1", spec_compression: str = "",
-        res_scale: tp.Optional[float] = None,
+        kernel_size: int = 5, last_kernel_size: int = 5, residual_kernel_size: int = 5,
+        dilation_base: int = 1, skip: str = '1x1', compress: int = 1,
+        act_all: bool = False, expansion: int = 1, groups: int = -1,
+        l2norm: bool = True, bias: bool = True,
+        res_scale: float = 0.5,
+        wav_std: float = 0.1122080159,
+        spec_means: tp.List[float] = [-4.554, -4.315, -4.021, -3.726, -3.477],
+        spec_stds: tp.List[float] = [2.830, 2.837, 2.817, 2.796, 2.871],
     ):
         super().__init__()
         self.dimension = dimension
@@ -342,6 +390,7 @@ class Encoder(nn.Module):
         
         act = getattr(nn, activation)
         mult = 1
+        self.wav_std = wav_std
         self.conv_pre = nn.Conv1d(
             channels, mult * n_filters, kernel_size, bias=bias)
         if norm == 'weight_norm':
@@ -353,7 +402,11 @@ class Encoder(nn.Module):
         self.downsample_pointwise = nn.ModuleList()
         self.downsample_depthwise = nn.ModuleList()
         stride = 1
-        for ratio in self.ratios:
+        self.scale_layer = Scale(
+            1, value=(1+n_residual_layers*res_scale**2)**-0.5,
+            learnable=False, inplace=True
+        )
+        for spec_mean, spec_std, ratio in zip(spec_means, spec_stds, self.ratios):
             # Add residual layers
             block = []
             for j in range(1, n_residual_layers + 1):
@@ -361,16 +414,16 @@ class Encoder(nn.Module):
                     mult * n_filters, kernel_size=residual_kernel_size,
                     dilations=[dilation_base ** j, 1], norm=norm,
                     activation=activation, activation_params=activation_params,
-                    compress=compress, skip=skip, act_all=act_all,
+                    compress=compress, act_all=act_all,
                     expansion=expansion, groups=groups, bias=bias,
-                    res_scale=res_scale
+                    res_scale=res_scale, idx=j
                 )]
             self.blocks.append(nn.ModuleList(block))
             
             # add spectrogram layer
             spec_block = SpecBlock(
-                spec, spec_layer, spec_compression, mult * n_filters, stride,
-                norm, bias=False
+                mult*n_fft_base, mult*n_filters, stride,
+                norm, bias=False, mean=spec_mean, std=spec_std, res_scale=res_scale
             )
             self.spec_blocks.append(spec_block)
             stride *= ratio
@@ -388,16 +441,19 @@ class Encoder(nn.Module):
             self.downsample_depthwise.append(downsample_depthwise)
             mult *= 2
 
-        self.spec_post = SpecBlock(spec, spec_layer, spec_compression,
-                                   mult * n_filters, stride, norm, bias=False)
+        self.spec_post = SpecBlock(
+            mult*n_fft_base, mult*n_filters, stride, norm, bias=False,
+            mean=spec_means[-1], std=spec_stds[-1], res_scale=res_scale
+        )
         self.conv_post_act = act(inplace=True, **activation_params)
         self.conv_post_depthwise = SConv1d(
             mult * n_filters, mult * n_filters, last_kernel_size, groups=mult*n_filters,
             norm=norm, bias=False)
         self.conv_post_pointwise = SConv1d(
             mult * n_filters, dimension, 1, norm=norm, bias=bias)
-        self.l2norm = L2Norm() if l2norm else nn.Identity()
+        self.l2norm = L2Norm(dimension) if l2norm else nn.Identity()
         self.num_cache = len(self.initialize_cache(torch.zeros(1)))
+        self.merged = False
     
     def initialize_cache(self, x: Tensor) -> tp.List[Tensor]:
         cache_out: tp.List[Tensor] = []
@@ -412,9 +468,19 @@ class Encoder(nn.Module):
             cache_out.append(down_depthwise.initialize_cache(x))
         cache_out.append(self.conv_post_depthwise.initialize_cache(x))
         return cache_out
+    
+    def merge_scaling(self) -> None:
+        '''Called after remove_weight_norm.
+        Merge wav_std into self.conv_pre
+        y = W @ (x / std) + b <=> y = (W / std) @ x + b
+        '''
+        if self.merged:
+            return
+        self.conv_pre.weight.data.div_(self.wav_std)
+        self.merged = True
 
     def forward(self, x: Tensor, *args) -> tp.Tuple[Tensor, tp.List[Tensor]]:
-        # x: [B, 1, T]
+        # x: [B, 1, T] / out: [B, T', C]
         cache_in: tp.List[Tensor] = [*args]
         cache_out: tp.List[Tensor] = []
         wav_cache_len = self.spec_post.spec.cache_len
@@ -437,6 +503,7 @@ class Encoder(nn.Module):
                 cache_out.extend(cache)
                 idx += n
 
+            x = self.scale_layer(x)
             x = down_pointwise(x)
             x, cache = down_depthwise(x, cache_in[idx])
             cache_out.append(cache)
@@ -447,7 +514,7 @@ class Encoder(nn.Module):
         cache_out.append(cache)
         x = self.conv_post_pointwise(x)
         x = self.l2norm(x)
-        return x, cache_out
+        return x.transpose(1, 2), cache_out
 
 
 class Decoder(nn.Module):
@@ -457,10 +524,12 @@ class Decoder(nn.Module):
         activation: str = 'ELU', activation_params: dict = {'alpha': 1.0},
         norm: str = 'weight_norm',
         kernel_size: int = 7, last_kernel_size: int = 7, residual_kernel_size: int = 3,
-        skip: str = '1x1', final_activation: tp.Optional[str] = None,
+        dilation_base: int = 2, skip: str = '1x1', compress: int = 2,
+        final_activation: tp.Optional[str] = None,
         final_activation_params: tp.Optional[dict] = None,
-        act_all: bool = False, bias: bool = True,
+        act_all: bool = False, expansion: int = 1, groups: int = -1, bias: bool = True,
         res_scale: tp.Optional[float] = None,
+        wav_std: float = 0.1122080159,
     ):
         super().__init__()
         self.dimension = dimension
@@ -470,6 +539,7 @@ class Decoder(nn.Module):
         del ratios
         self.n_residual_layers = n_residual_layers
         self.hop_length = np.prod(self.ratios)
+        self.wav_std = wav_std
 
         act = getattr(nn, activation)
         mult = int(2 ** len(self.ratios))
@@ -483,6 +553,10 @@ class Decoder(nn.Module):
         self.upsample_act = nn.ModuleList()
         self.upsample_depthwise = nn.ModuleList()
         self.upsample_pointwise = nn.ModuleList()
+        self.scale_layer = Scale(
+            1, value=(1+n_residual_layers*res_scale**2)**-0.5,
+            learnable=False, inplace=True
+        )
         # Upsample to raw audio scale
         for ratio in self.ratios:
             # Add upsampling layers
@@ -503,7 +577,7 @@ class Decoder(nn.Module):
                     mult * n_filters // 2, kernel_size=residual_kernel_size,
                     dilations=[dilation_base ** j, 1],
                     activation=activation, activation_params=activation_params,
-                    norm=norm, compress=compress, skip=skip,
+                    norm=norm, compress=compress,
                     act_all=act_all, expansion=expansion, groups=groups,
                     bias=bias, res_scale=res_scale
                 )]
@@ -520,6 +594,7 @@ class Decoder(nn.Module):
             self.final_act = getattr(nn, final_activation)(**final_activation_params) 
         else:
             self.final_act = nn.Identity()
+        self.merged = False
     
     def initialize_cache(self, x: Tensor) -> tp.List[Tensor]:
         cache_out: tp.List[Tensor] = []
@@ -530,8 +605,20 @@ class Decoder(nn.Module):
                 cache_out.extend(block.initialize_cache(x))
         cache_out.append(self.conv_post.initialize_cache(x))
         return cache_out
+    
+    def merge_scaling(self) -> None:
+        '''Called after remove_weight_norm.
+        Merge wav_std into self.conv_post
+        y = W @ (x * std) + b <=> y = (W * std) @ x + b
+        '''
+        if self.merged:
+            return
+        self.conv_post.weight.data.mul_(self.wav_std)
+        self.merged = True
 
     def forward(self, x: Tensor, *args) -> tp.Tuple[Tensor, tp.List[Tensor]]:
+        # x: [B, T', C] / out: [B, 1, T]
+        x = x.transpose(1, 2)
         cache_in: tp.List[Tensor] = [*args]
         cache_out: tp.List[Tensor] = []
         x = self.conv_pre_pointwise(x)
@@ -553,6 +640,7 @@ class Decoder(nn.Module):
                 x, cache = block(x, cache_in[idx:idx + n])
                 cache_out.extend(cache)
                 idx += n
+            x = self.scale_layer(x)
         x = self.conv_post_act(x)
         x, cache = self.conv_post(x, cache_in[idx])
         cache_out.append(cache)
@@ -560,18 +648,18 @@ class Decoder(nn.Module):
         return x, cache_out
 
 
-class Encodec(nn.Module):
+class HILCodec(nn.Module):
     def __init__(
         self,
-        sample_rate: int,
+        sample_rate: int = 16_000,
         channels_audio: int = 1,
-        channels_enc: int = 32,
-        channels_dec: int = 32,
+        channels_enc: int = 64,
+        channels_dec: int = 96,
         n_fft_base: int = 64,
-        n_residual_enc: int = 1,
-        n_residual_dec: int = 1,
-        res_scale_enc: tp.Optional[float] = None,
-        res_scale_dec: tp.Optional[float] = None,
+        n_residual_enc: int = 2,
+        n_residual_dec: int = 3,
+        res_scale_enc: tp.Optional[float] = 0.5773502691896258,
+        res_scale_dec: tp.Optional[float] = 0.5773502691896258,
         strides: tp.List[int] = [8, 5, 4, 2],
         activation: str = 'ELU',
         activation_kwargs: dict = {'alpha': 1.0},
@@ -579,21 +667,33 @@ class Encodec(nn.Module):
         kernel_size: int = 5,
         last_kernel_size: int = 5,
         residual_kernel_size: int = 5,
+        dilation_base: int = 1,
         skip: str = "identity",
+        compress: int = 1,
         final_activation: tp.Optional[str] = "Tanh",
         use_vq: bool = True,    # deprecated
         vq: str = "ResidualVQ", # "" / "ResidualVQ" / "ResidualGainShapeVQ" / "ResidualGainResidualShapeVQ"
-        vq_kwargs: tp.Dict[str, tp.Any] = {},
+        vq_kwargs: tp.Dict[str, tp.Any] = dict(dim=128, ),
         act_all: bool = False,
+        expansion: int = 1,
+        groups: int = -1,
         encoder_l2norm: bool = True,
         bias: bool = True,
         spec: str = "stft",          # dct or stft
-        spec_layer: str = "1x1",    # 1x1 or scale or channelwise_scale
         spec_compression: str = "log", # "" or "log" or float(0~1)
+        zero_init: bool = True,
+        inout_norm: bool = True,
     ):
-        assert spec in ["dct", "stft", ""]
-        assert spec_layer in ["1x1", "scale", "channelwise_scale"]
-        assert skip in ["1x1", "scale", "channelwise_scale", "identity"]
+        assert spec == "stft"
+        assert spec_compression == "log"
+        assert skip  == "identity", skip
+        assert zero_init == True
+        assert inout_norm == True
+        if expansion != 1 and groups != -1:
+            raise RuntimeError(
+                f"Both expansion({expansion}) and groups({groups}) are set. "
+                f"Either set expansion=1 or set groups=-1"
+            )
         if encoder_l2norm and vq != "ResidualVQ" and verbose():
             print(f"Warning: encoder_l2norm is used with vq {vq}")
         
@@ -604,11 +704,9 @@ class Encodec(nn.Module):
             channels_audio, channels_vq, channels_enc, n_fft_base,
             n_residual_enc, strides, activation, activation_kwargs,
             norm, kernel_size, last_kernel_size, residual_kernel_size,
-            skip,
+            dilation_base, skip, compress,
             act_all=act_all, expansion=expansion, groups=groups, l2norm=encoder_l2norm,
-            bias=bias, spec=spec, spec_layer=spec_layer, spec_compression=spec_compression,
-            res_scale=res_scale_enc,
-        )
+            bias=bias, res_scale=res_scale_enc,)
         self.decoder = Decoder(channels_audio, channels_vq, channels_dec,
             n_residual_dec, strides, activation, activation_kwargs,
             norm, kernel_size, last_kernel_size, residual_kernel_size,
@@ -617,6 +715,7 @@ class Encodec(nn.Module):
             act_all=act_all, expansion=expansion, groups=groups, bias=bias,
             res_scale=res_scale_dec,)
         self.quantizer = ResidualVQ(**vq_kwargs)
+        self.dequantizer = Dequantizer(**vq_kwargs)
 
         self.sample_rate = sample_rate
         self.channels = channels_audio
@@ -643,3 +742,11 @@ class Encodec(nn.Module):
             for module in self.modules():
                 if isinstance(module, (nn.Conv1d, nn.ConvTranspose1d)):
                     remove_weight_norm(module)
+        for module in self.modules():
+            if hasattr(module, "merge_scaling"):
+                module.merge_scaling()
+
+
+if __name__ == "__main__":
+    model = Encoder()
+    model(torch.randn(1, 1, 16000))

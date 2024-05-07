@@ -21,7 +21,7 @@ from .vector_quantize import ResidualVQ
 Array = tp.Union[np.ndarray, list]
 
 
-class EncodecModel(nn.Module):
+class HILCodec(nn.Module):
     """EnCodec model operating on the raw waveform.
     Args:
         target_bandwidths (list of float): Target bandwidths.
@@ -62,7 +62,6 @@ class EncodecModel(nn.Module):
         encoder_l2norm: bool = True,
         bias: bool = True,
         spec: str = "stft",          # dct or stft
-        spec_layer: str = "1x1",    # 1x1 or scale or channelwise_scale
         spec_compression: str = "", # "" or "log" or float(0~1)
         spec_learnable: bool = False,
         pad_mode: str = "constant",
@@ -71,7 +70,6 @@ class EncodecModel(nn.Module):
         inout_norm: bool = True,
     ):
         assert spec in ["stft", ""]
-        assert spec_layer in ["1x1", "scale", "channelwise_scale", "1x1_zero", "1x1_div2"]
         assert skip in ["1x1", "scale", "channelwise_scale", "identity"]
         if expansion != 1 and groups != -1:
             raise RuntimeError(
@@ -90,7 +88,7 @@ class EncodecModel(nn.Module):
             norm, norm_kwargs, kernel_size, last_kernel_size, residual_kernel_size,
             dilation_base, skip, causal=causal,
             act_all=act_all, expansion=expansion, groups=groups, l2norm=encoder_l2norm,
-            bias=bias, spec=spec, spec_layer=spec_layer, spec_compression=spec_compression,
+            bias=bias, spec=spec, spec_compression=spec_compression,
             res_scale=res_scale_enc, pad_mode=pad_mode,
             spec_learnable=spec_learnable, zero_init=zero_init, inout_norm=inout_norm)
         self.decoder = m.SEANetDecoder(channels_audio, channels_vq, channels_dec,

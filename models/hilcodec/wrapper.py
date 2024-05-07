@@ -17,7 +17,7 @@ from utils import plot_param_and_grad, clip_grad_norm_local
 from utils.data import get_dataset_dataloader
 from utils.terminal import clear_current_line
 
-from .models import EncodecModel
+from .models import HILCodec
 from .discriminators import Discriminators
 from .losses import feature_loss, generator_loss, discriminator_loss, MelLoss, \
     feature_loss_normalized, generator_loss_lsgan, discriminator_loss_lsgan, \
@@ -33,7 +33,7 @@ class ModelWrapper(AudioModelWrapper):
         self.textprocessor = None
         self.h = hps.data
 
-        self.model = EncodecModel(sample_rate=hps.data.sampling_rate, 
+        self.model = HILCodec(sample_rate=hps.data.sampling_rate, 
             channels_audio=hps.data.channels, **hps.model_kwargs)
         self.disc = Discriminators(**hps.disc_kwargs)
         self._module = self.model

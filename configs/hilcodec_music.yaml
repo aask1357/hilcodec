@@ -22,9 +22,8 @@ model_kwargs:
     pad_mode: constant      # padding mode for every (causal) convolutions.
 
     # SpecBlock parameters
-    spec: stft
-    spec_layer: 1x1_zero
-    spec_compression: log
+    spec: stft              # "stft" or ""
+    spec_compression: log   # "log" or "" or float between 0 and 1
     spec_learnable: False   # Whether to learn STFT filters.
 
     vq_kwargs:
@@ -91,7 +90,7 @@ data:
         RandomGain:
             low_db: -10
             high_db: 6
-    length: 150000      # Used for DirectoriesDataset. __len__() of a dataset (in samples).
+    length: 150000      # Used for DirectoriesDataset. __len__() of a dataset.
     wav_dir: "/home/shahn/Datasets"
     data_dir: ""
     extension: ""
