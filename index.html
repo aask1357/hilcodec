@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="UTF-8">
+<title>HILCodec</title>
+<style>
+    table, th, td {
+        border-collapse: collapse;
+    }
+    table {
+        border: 2px solid black;
+        margin: 10px;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 10px;
+    }
+    .border-bottom {
+        border-bottom: 2px solid black;
+    }
+    .tab {
+        margin-left: 10px;
+    }
+</style>
+</head>
+
+<body>
+<section>
+<header><h1>Audio samples for HILCodec</h1></header>
+  <p>
+    <a href="https://github.com/aask1357/hilcodec" target="_blank" rel="noopener noreferrer">[github]</a>
+    <a href="https://arxiv.org/abs/2405.04752" target="_blank" rel="noopener noreferrer">[paper]</a>
+  </p>
+  <p>Sampling rate: 24khz, Mono channel</p>
+  <p>2 versions of HILCodec are available: One trained on general audio including clean speech, noisy speech, and music. The other trained on clean speech only.</p>
+  <p><img src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/mushra.png" alt="mushra scores"></p>
+  <p><h1>Models trained on general audio</h1></p>
+  <p><h3 class="tab">Low bitrates</h3></p>
+  <p><table style="text-align:center;vertical-align:middle">
+  <tr class="border-bottom">
+    <th></th>
+    <th>Reference</th>
+    <th>HILCodec (3kbps)</th>
+    <th>EnCodec (3kbps)</th>
+    <th>Descript (3kbps)</th>
+    <th>EVS (5.9kbps)</th>
+  </tr><tr>
+    <td>
+      clean speech
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_hil_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_encodec_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_descript_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_evs_5.9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr><tr>
+    <td>
+      noisy speech
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_hil_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_encodec_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_descript_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_evs_5.9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr><tr>
+    <td>
+      music
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_hil_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_encodec_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_descript_3kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_evs_5.9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr></table></p>
+
+
+  <p><h3 class="tab">High bitrates</h3></p>
+  <p><table style="text-align:center;vertical-align:middle">
+  <tr class="border-bottom">
+    <th></th>
+    <th>Reference</th>
+    <th>HILCodec (9kbps)</th>
+    <th>EnCodec (9kbps)</th>
+    <th>Descript (9kbps)</th>
+    <th>EVS (16.4kbps)</th>
+  </tr><tr>
+    <td>
+      clean speech
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_hil_9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_encodec_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_descript_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/speech_evs_16.4kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr><tr>
+    <td>
+      noisy speech
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_hil_9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_encodec_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_descript_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/noisy_evs_16.4kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr><tr>
+    <td>
+      music
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_ref.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_hil_9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_encodec_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_descript_9kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td><td>
+        <audio controls="">
+          <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/music_evs_16.4kbps.wav" type="audio/wav" /> 
+          Your browser does not support the audio element. 
+        </audio>
+    </td>
+  </tr></table></p>
+
+<p><h1>Models trained on clean speech</h1></p>
+<p><h3 class="tab">Low bitrates</h3></p>
+<p><table style="text-align:center;vertical-align:middle">
+<tr class="border-bottom">
+  <th></th>
+  <th>Reference</th>
+  <th>HILCodec (3kbps)</th>
+  <th>HiFiCodec (3kbps)</th>
+  <th>AudioDec (6.4kbps)</th>
+  <th>EVS (5.9kbps)</th>
+</tr><tr>
+  <td>
+    clean speech 1
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/eng_ref.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/eng_hil_3kbps.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/eng_hifi_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/eng_audiodec_6.4kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/eng_evs_5.9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td>
+</tr><tr>
+  <td>
+    clean speech 2
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/kr_ref.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/kr_hil_3kbps.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/kr_hifi_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/kr_audiodec_6.4kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/kr_evs_5.9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td>
+</tr><tr>
+  <td>
+    clean speech 3
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/ch_ref.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+    <audio controls="">
+      <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/ch_hil_3kbps.wav" type="audio/wav" /> 
+      Your browser does not support the audio element. 
+    </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/ch_hifi_3kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/ch_audiodec_6.4kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td><td>
+      <audio controls="">
+        <source src="https://raw.githubusercontent.com/aask1357/hilcodec/master/samples/ch_evs_5.9kbps.wav" type="audio/wav" /> 
+        Your browser does not support the audio element. 
+      </audio>
+  </td>
+</tr></table></p>
+</section>
+</body>
+</html>>

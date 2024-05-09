@@ -1,5 +1,6 @@
 # Description
-Training & test code for the HILCodec: High Fidelity and Lightweight Neural Audio Codec paper.
+Official code for the paper "HILCodec: High Fidelity and Lightweight Neural Audio Codec".  
+\[[paper]()\] \[[samples](https://aask1357.github.io/hilcodec/)\]
 
 # Environment
 We tested under CUDA=11.7, torch=1.13 and CUDA=10.2, torch=1.12.  
@@ -7,7 +8,7 @@ It may work in other environments, but not guaranteed.
 
 # Install using anaconda
 ## Intall for training
-First, install [PyTorch](https://pytorch.org/get-started/locally/).  
+First, install [PyTorch](https://pytorch.org/get-started/locally/) along with torchaudio.  
 Then, install other requirements as below.
 <pre><code>conda install librosa -c conda-forge
 conda install jupyter notebook matplotlib scipy tensorboard tqdm pyyaml
@@ -18,7 +19,7 @@ Optionally, install [ViSQOL](https://github.com/google/visqol).
 For test, you only need to install ONNXRuntime, librosa, and soundfile.  
 
 # Datasets
-We used VCTK, DNS-Challenge4 and Jamendo dataset for training.
+Download VCTK, DNS-Challenge4 and Jamendo dataset for training.
 For validation, we used `p225`, `p226`, `p227`, and `p228` from VCTK for clean speech. Real noisy speech recordings from DNS-Challenge4 are used for noisy speech. `Jamendo/99` are used for music.  
 Downsample all audio files into 24khz before training (see `scripts/Resampling.ipynb`).  
 
@@ -31,22 +32,23 @@ Either use `train.py` or `train_torchrun.py` for training. Examples are:
 <pre><code>CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 train_torchrun.py -c configs/hilcodec_music.yaml -n first_exp -p train.batch_size=16 train.seed=1234 -f</code></pre>  
 Arguments:  
 -n: (Required) Directory name to save checkpoints, the configuration file, and tensorboard logs.  
--c: (Optional) Configuration file path. If not given, use a configuration file in the directory below.  
+-c: (Optional) Configuration file path. If not given, use a configuration file in the directory.  
 -p: (Optional) Parameters after this will update configurations.  
 -f: (Optional) If the directory already exists, an exception will be raised to avoid overwriting config file. However, enabling this option will force overwriting config file.
 
-# Test
+# Inference
 Pre-trained model parameters are provided in the `onnx` directory. Two versions are available: 
 - hilcodec_music  
 - hilcodec_speech  
 
 Modify the variable `PATH` in `test_onnx.py` as you want, and run the following code:
-<pre><code>python test_onnx.py -n hilcodec_speech --enc --dec</code></pre>
+<pre><code>python test_onnx.py -n hil_speech --enc --dec</code></pre>  
+The output will be saved at `onnx/hil_speech_output.wav`.  
 Use `python test_onnx.py --help` for information about each argument.  
 Note that for AudioDec, you must set `-H 300`.  
 
-One can convert their own trained HILCodec to ONNX using `scripts/HILCodec Onnx.ipynb`.  
-One can also convert [Encodec](https://github.com/facebookresearch/encodec) and [AudioDec](https://github.com/facebookresearch/AudioDec) to ONNX for comparison.  
+You can convert your own trained HILCodec to ONNXRuntime using `scripts/HILCodec Onnx.ipynb`.  
+You can also convert [Encodec](https://github.com/facebookresearch/encodec) and [AudioDec](https://github.com/facebookresearch/AudioDec) to ONNXRuntime for comparison.  
 Download checkpoints from official repositories and use `scripts/Encodec Onnx.ipynb` or `scripts/AudioDec Onnx.ipynb`.
 script. It saves logs in `logs/first` directory.   
 

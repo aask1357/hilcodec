@@ -117,7 +117,7 @@ data:
     clip_val: 1.0e-5            # clip value for log(-mel) spectrogram
 train:
     batch_size: 24              # batch size for each GPU
-    max_epochs: 50              # max epochs to train
+    max_epochs: 150             # max epochs to train
     fp16_g: True
     fp16_d: True
     num_workers: 2              # num_workers for DataLoader
@@ -125,7 +125,7 @@ train:
     clip_grad: null
     seed: 1
     plot_param_and_grad: True   # plot histgram of params & grad in tensorboard
-    save_interval: 10           # Save interval in epochs
+    save_interval: 1            # Save interval in epochs
     lookahead: 0
     infer_n: 4                  # 'n' of ResidualVQ for infer & pesq. 4 = 3kbps
     
