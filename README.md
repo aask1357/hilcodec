@@ -1,6 +1,6 @@
 # Description
 Official code for the paper "HILCodec: High Fidelity and Lightweight Neural Audio Codec".  
-\[[paper]()\] \[[samples](https://aask1357.github.io/hilcodec/)\]
+\[[paper](https://arxiv.org/abs/2405.04752)\] \[[samples](https://aask1357.github.io/hilcodec/)\]
 
 # Environment
 We tested under CUDA=11.7, torch=1.13 and CUDA=10.2, torch=1.12.  
