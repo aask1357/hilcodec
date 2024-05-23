@@ -52,7 +52,6 @@ Note that for AudioDec, you must set `-H 300`.
 You can convert your own trained HILCodec to ONNXRuntime using `scripts/HILCodec Onnx.ipynb`.  
 You can also convert [Encodec](https://github.com/facebookresearch/encodec) and [AudioDec](https://github.com/facebookresearch/AudioDec) to ONNXRuntime for comparison.  
 Download checkpoints from official repositories and use `scripts/Encodec Onnx.ipynb` or `scripts/AudioDec Onnx.ipynb`.
-script. It saves logs in `logs/first` directory.   
 
 # Evaluating PESQ, STOI and ViSQOL
 Our training code includes objective metrics calculation. You can set `pesq` in a config file appropriately.  
