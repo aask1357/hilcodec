@@ -14,7 +14,7 @@ import librosa
 import soundfile as sf
 
 
-PATH = "onnx/input_speech.wav"
+PATH = "onnx/chinese_in.wav"
 
 
 class Timer:
@@ -50,7 +50,7 @@ class Timer:
 def encoder(name: str, hop_size: int, num_quantizers: int, timer: Timer, sr: int,
             so: onnxruntime.SessionOptions):
     wav, _ = librosa.load(PATH, sr=sr)
-    wav = np.concatenate((wav, wav))
+    # wav = np.concatenate((wav, wav))
     length = len(wav) // hop_size * hop_size
     wav = wav[np.newaxis, np.newaxis, :length]
     timer.wav_len = length
