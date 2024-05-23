@@ -14,7 +14,7 @@ import librosa
 import soundfile as sf
 
 
-PATH = "onnx/chinese_in.wav"
+PATH = "onnx/input_speech.wav"
 
 
 class Timer:
