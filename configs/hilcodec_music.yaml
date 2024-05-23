@@ -3,7 +3,7 @@ model_kwargs:
     channels_enc: 64
     channels_dec: 96
     n_fft_base: 64
-    n_residual_enc: 2      # Number of residual blocks in the encoder. Since there exists SpecBlock, $N_{enc}=N_{resblock}+1$.
+    n_residual_enc: 2      # Number of residual blocks in the encoder. Since there exist SpecBlocks, $N_{enc} = n_residual_enc + 1$.
     n_residual_dec: 3
     res_scale_enc: 0.5773502691896258
     res_scale_dec: 0.5773502691896258
