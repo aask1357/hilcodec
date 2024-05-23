@@ -38,11 +38,11 @@ Arguments:
 
 # Inference
 Pre-trained model parameters are provided in the `onnx` directory. Two versions are available: 
-- hilcodec_music  
-- hilcodec_speech  
+- hil_music  
+- hil_speech  
 
-hilcodec_music is a model trained on general audio dataset (clean speech, noisy speech, music).
-hilcodec_speech is a model trained only on clean speech dataset.  
+`hil_music` is a model trained on general audio dataset (clean speech, noisy speech, music).
+`hil_speech` is a model trained only on clean speech dataset.  
 
 Modify the variable `PATH` in `test_onnx.py` as you want, and run the following code:
 <pre><code>python test_onnx.py -n hil_speech --enc --dec</code></pre>  
