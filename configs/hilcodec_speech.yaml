@@ -25,14 +25,14 @@ model_kwargs:
 
     vq_kwargs:
         dim: 128
-        codebook_size: 1024     # 16kHz 기준, 1개당 0.5kbps
-        num_quantizers: 12
+        codebook_size: 1024
+        num_quantizers: 8
         kmeans_init: True
         decay: 0.99
         ema_num_threshold: 0.5
         ema_num_initial: 0.5
         dropout: True
-        dropout_index: [2, 4, 8, 12]  # 1.5, 3, 6, 9 kbps
+        dropout_index: [2, 4, 8]  # 1.5, 3, 6 kbps
 disc_kwargs:
     mfbd_kwargs:
         use: True
@@ -120,7 +120,6 @@ train:
 
     balancer_kwargs:
         weights:
-            ### 0.9:4:4 ###
             freq: 0.48
             mfbd_g: 1.1
             mfbd_fm: 1.1
@@ -145,7 +144,7 @@ infer:
     interval: 15
     batch_size: 1
 pesq:
-    interval: 1000
+    interval: 1000            # Evaluating ViSQOL during training rarely crashes our server, so we deactivate it as a default.
     batch_size: 12
     num_workers: 0
     num_workers_executor: 32    # num_workers for a multiprocess executor
