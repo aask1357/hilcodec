@@ -37,6 +37,7 @@ Arguments:
 -f: (Optional) If the directory already exists, an exception will be raised to avoid overwriting config file. However, enabling this option will force overwriting config file.
 
 # Inference
+## ONNX
 Pre-trained model parameters are provided in the `onnx` directory. Two versions are available: 
 - hil_music  
 - hil_speech  
@@ -53,6 +54,9 @@ Note that for AudioDec, you must set `-H 300`.
 You can convert your own trained HILCodec to ONNXRuntime using `scripts/HILCodec Onnx.ipynb`.  
 You can also convert [Encodec](https://github.com/facebookresearch/encodec) and [AudioDec](https://github.com/facebookresearch/AudioDec) to ONNXRuntime for comparison.  
 Download checkpoints from official repositories and use `scripts/Encodec Onnx.ipynb` or `scripts/AudioDec Onnx.ipynb`.
+## PyTorch
+You can also download pytorch checkpoints and tensorboard logs from [google drive](https://drive.google.com/drive/folders/1og7uw_t1oJd7qcg-sjjuJ4Pn7t1TArsW?usp=drive_link).  
+Download the .zip files and use `scripts/inference.ipynb`.
 
 # Evaluating PESQ, STOI and ViSQOL
 Our training code includes objective metrics calculation. You can set `pesq` in a config file appropriately.  
