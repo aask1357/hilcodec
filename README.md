@@ -3,7 +3,11 @@ Official code for the paper "HILCodec: High Fidelity and Lightweight Neural Audi
 \[[paper](https://arxiv.org/abs/2405.04752)\] \[[samples](https://aask1357.github.io/hilcodec/)\]
 
 # Environment
-We tested under CUDA=11.7, torch=1.13 and CUDA=10.2, torch=1.12.  
+We tested under:
+- CUDA=10.2, torch=1.12
+- CUDA=11.7, torch=1.13
+- CUDA=11.8, torch=2.5
+
 It may work in other environments, but not guaranteed.
 
 # Install using anaconda
@@ -24,10 +28,9 @@ For validation, we used `p225`, `p226`, `p227`, and `p228` from VCTK for clean s
 Downsample all audio files into 24khz before training (see `scripts/Resampling.ipynb`).  
 
 # Training
-Use `configs/...yaml` file to change configurations.  
-Modify `directories_to_include`, `directories_to_exclude`, `wav_dir`.  
-Also, modify `filelists/infer_24khz.txt` or `filelists/infer_speech.txt` file, which cotain audio files used for inference in tensorboard.  
-Either use `train.py` or `train_torchrun.py` for training. Examples are:  
+1. `configs/...yaml` files contain various configurations. Among those configurations, you must modify `directories_to_include`, `directories_to_exclude`, `wav_dir`. `configs/hilcodec_music.yaml` file includes explanations for each arguments. If you don't understand any argument, feel free to leave an issue.
+2. Modify `filelists/infer_24khz.txt` or `filelists/infer_speech.txt` file, which cotain relative paths for audio files used for inference. Note that you can set the base directory using `data.wav_dir` argument in configuration files.
+3. Either use `train.py` or `train_torchrun.py` for training. Examples are:
 <pre><code>CUDA_VISIBLE_DEVICES=0,1 python train.py -c configs/hilcodec_music.yaml -n first_exp -p train.batch_size=16 train.seed=1234 -f</code></pre>
 <pre><code>CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 train_torchrun.py -c configs/hilcodec_music.yaml -n first_exp -p train.batch_size=16 train.seed=1234 -f</code></pre>  
 Arguments:  

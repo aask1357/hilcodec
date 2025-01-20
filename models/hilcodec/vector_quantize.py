@@ -6,7 +6,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 import torch.distributed as dist
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 from einops import rearrange, repeat
 
 
@@ -153,7 +153,7 @@ class EuclideanCodebook(nn.Module):
         quantize = F.embedding(embed_ind, self.embed)   # [Batch, Time, Channel]
 
         if self.training:
-            with autocast(enabled=False):
+            with autocast("cuda", enabled=False):
                 num_curr = embed_onehot.sum(dim=0)              # [codebook_size]
                 embed_curr = embed_onehot.t() @ flatten.float() # [codebook_size, Channel]
                 if self.distributed:

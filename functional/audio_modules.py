@@ -7,7 +7,7 @@ from torch import Tensor
 from torch import nn
 import torch.nn.functional as F
 import torch.utils.data
-from scipy.signal import kaiser
+from scipy.signal.windows import kaiser
 
 
 #class STDCT(torch.jit.ScriptModule):

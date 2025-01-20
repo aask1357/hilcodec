@@ -91,7 +91,7 @@ data:
             low_db: -10
             high_db: 6
     length: 150000      # Used for DirectoriesDataset. __len__() of a dataset.
-    wav_dir: "/home/shahn/Datasets"
+    wav_dir: "/home/shahn/Datasets"   # Base directory for `data.filelists.valid/infer/pesq`.
     data_dir: ""
     extension: ""
     num_infer: 6        # Number of samples to infer & plot in tensorboard
@@ -100,9 +100,9 @@ data:
         infer: "filelists/infer_24khz.txt"
         pesq: "filelists/DNS_VCTK_jamendo_pesq_24khz.txt"
     filter:     # If set to True, data will be sorted by length.
-        train: False
-        valid: False
-        pesq: True
+        train: False   # For train & valid, we segment audio files into fixed length, so 
+        valid: False   # we don't need to filter. However, when calculating pesq, we use
+        pesq: True     # the whole audio files, so `filter` is set `True` for speedup.
     segment_size: 24000         # Segment size of each audio file for training & validation
     sampling_rate: 24000
     normalize_method: "random_gain"
@@ -114,18 +114,18 @@ data:
     n_fft: 1024
     hop_size: 256
     win_size: 1024
-    clip_val: 1.0e-5            # clip value for log(-mel) spectrogram
+    clip_val: 1.0e-5            # clip value for log mel spectrogram
 train:
     batch_size: 24              # batch size for each GPU
     max_epochs: 150             # max epochs to train
-    fp16_g: True
-    fp16_d: True
+    fp16_g: True                # Use mixed precision for training a generator
+    fp16_d: True                # Use mixed precision for training discriminators
     num_workers: 2              # num_workers for DataLoader
-    persistent_workers: True    # set True when using train.py & num_workers > 0
+    persistent_workers: True    # For speedup, set True when using train.py & num_workers > 0. When using torchrun, not necessary to set True.
     clip_grad: null
     seed: 1
     plot_param_and_grad: True   # plot histgram of params & grad in tensorboard
-    save_interval: 1            # Save interval in epochs
+    save_interval: 1            # Save checkpoints every `save_interval` epochs
     lookahead: 0
     infer_n: 4                  # 'n' of ResidualVQ for infer & pesq. 4 = 3kbps
     
@@ -162,12 +162,12 @@ train:
 valid:
     batch_size: 48
 infer:
-    interval: 10    # interval to infer in epoch
+    interval: 10    # infer every `interval` epochs (you can check the results in tensorboard).
     batch_size: 1
 pesq:
     # In our experiments, calculating ViSQOL during training makes the server crash,
-    # so we turn it off.
-    interval: 1000
+    # so we turn it off by setting a large interval.
+    interval: 1000              # calculate objective measures every `interval` epochs.
     batch_size: 12
     num_workers: 0              # num_workers for a dataloader
     num_workers_executor: 12    # num_workers for a multiprocess executor
