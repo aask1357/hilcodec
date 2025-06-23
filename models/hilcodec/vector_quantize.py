@@ -130,7 +130,7 @@ class EuclideanCodebook(nn.Module):
         return self.replace(batch_samples, mask=expired_codes)
 
     @torch.no_grad()
-    def forward(self, x: Tensor) -> tp.Tuple[Tensor, int]:
+    def forward(self, x: Tensor) -> tp.Tuple[Tensor, int, Tensor]:
         # x.dtype: float16 / embed.dtype: float32 / device: cuda{rank}
         shape, dtype = x.shape, self.embed.dtype
         flatten = rearrange(x, '... d -> (...) d')      # [Batch x Time, Channel]
@@ -173,7 +173,7 @@ class EuclideanCodebook(nn.Module):
         else:
             num_replace = 0
 
-        return quantize, num_replace
+        return quantize, num_replace, embed_ind
 
 
 class ResidualVQ(nn.Module):
@@ -199,13 +199,15 @@ class ResidualVQ(nn.Module):
     def forward(
         self,
         x: Tensor,
-        n: tp.Optional[int] = None
-    ) -> tp.Tuple[Tensor, np.ndarray, Tensor]:
+        n: tp.Optional[int] = None,
+        return_indices: bool = False,
+    ) -> tp.Tuple[Tensor, np.ndarray, Tensor, Tensor]:
         if not self.channel_last:
             residual = x.transpose(1, 2).detach()   # [B, C, T] -> [B, T, C]
         else:
             residual = x.detach()
         num_replaces = np.zeros(len(self.layers), dtype=np.int64)
+        indices = []
 
         if n is not None:
             assert 1 <= n <= len(self.layers), \
@@ -217,8 +219,9 @@ class ResidualVQ(nn.Module):
             high = len(self.layers)
 
         for idx, layer in enumerate(self.layers[:high]):
-            quantized, num_replace = layer(residual)
+            quantized, num_replace, index = layer(residual)
             num_replaces[idx] = num_replace
+            indices.append(index)
             residual = residual - quantized
             if idx == 0:
                 quantized_out = quantized
@@ -232,5 +235,9 @@ class ResidualVQ(nn.Module):
         loss = F.mse_loss(x, quantized_out)
         if self.training:
             quantized_out = quantized_out + x - x.detach()
-        
+
+        if return_indices:
+            indices = torch.stack(indices, dim=1)   # [B, n, T] where n = num_quantizers
+            return quantized_out, num_replaces, loss, indices
+
         return quantized_out, num_replaces, loss
