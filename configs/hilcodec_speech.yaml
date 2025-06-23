@@ -16,12 +16,15 @@ model_kwargs:
     final_activation: Tanh
     act_all: False
     encoder_l2norm: True
-    spec: stft
-    spec_layer: 1x1_zero
-    spec_compression: log
-    spec_learnable: False
-    pad_mode: constant
     causal: True
+    zero_init: True
+    inout_norm: True
+    pad_mode: constant      # padding mode for every (causal) convolutions.
+
+    # SpecBlock parameters
+    spec: stft              # "stft" or ""
+    spec_compression: log   # "log" or "" or float between 0 and 1
+    spec_learnable: False   # Whether to learn STFT filters.
 
     vq_kwargs:
         dim: 128

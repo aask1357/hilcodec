@@ -3,7 +3,11 @@ import math
 from typing import Optional, Dict
 
 import torch
-from torch.cuda import amp
+from torch import amp
+try:
+    from torch.amp import GradScaler
+except:
+    from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 from torch.utils.data import DataLoader
@@ -114,8 +118,8 @@ class ModelWrapper(AudioModelWrapper):
                                 static_graph=True)
                 self._module = self.model.module
                 self._disc = self.disc.module
-            self.scaler_g = amp.GradScaler(init_scale=2.0**10, enabled=self.fp16_g)
-            self.scaler_d = amp.GradScaler(init_scale=2.0**15, enabled=self.fp16_d)
+            self.scaler_g = GradScaler(init_scale=2.0**10, enabled=self.fp16_g)
+            self.scaler_d = GradScaler(init_scale=2.0**15, enabled=self.fp16_d)
             self.disc_parameters = list(self.disc.parameters())
             
             self.balancer = Balancer(others=["d", "vq"], world_size=self.world_size,
@@ -168,7 +172,7 @@ class ModelWrapper(AudioModelWrapper):
         #    the first iteration.
         # 2. For DDP. DDP(gradient_as_bucket_view=True) use less GPU memory
         #    after the first iteration.
-        # 3. Initialize scaler_d. torch.cuda.amp.GradScaler use lazy initialization
+        # 3. Initialize scaler_d. GradScaler use lazy initialization
         #    so scaler_d._scale is not initialized at the beginning,
         #    which is needed for balancer.
         if self.rank == 0:
@@ -180,7 +184,7 @@ class ModelWrapper(AudioModelWrapper):
         for batch in dataloader:
             wav_r = batch["wav"].cuda(self.rank, non_blocking=True).unsqueeze(1)
             # VQ initialization
-            with amp.autocast(enabled=self.fp16_g):
+            with amp.autocast("cuda", enabled=self.fp16_g):
                 wav_g, _, loss_vq = self.model(wav_r, n=self.num_quantizers)
             
             # DDP gradient_bucket initialization
@@ -189,7 +193,7 @@ class ModelWrapper(AudioModelWrapper):
                 ((wav_g + loss_vq) * 0.0).sum().backward()
 
                 tmp = torch.zeros_like(wav_r[0:1])  # use batch_size 1 for discriminator.
-                with amp.autocast(enabled=self.fp16_d):
+                with amp.autocast("cuda", enabled=self.fp16_d):
                     logits, _ = self.disc(tmp)
                 loss = 0.0
                 for logit in logits.values():
@@ -220,13 +224,13 @@ class ModelWrapper(AudioModelWrapper):
             batch_size = wav_r.size(0)
             self.balancer.add_n_items(batch_size)
             
-            with amp.autocast(enabled=self.fp16_g):
+            with amp.autocast("cuda", enabled=self.fp16_g):
                 wav_g, num_replaces, loss_vq = self.model(wav_r)
                 if self.lookahead > 0:
                     wav_r = wav_r[:, :, :-self.lookahead]
                     wav_g = wav_g[:, :, self.lookahead:]
             
-            with amp.autocast(enabled=self.fp16_d):
+            with amp.autocast("cuda", enabled=self.fp16_d):
                 logits_g, fmaps_g = self.disc(wav_g)
                 logits_r, fmaps_r = self.disc(wav_r)
 
@@ -234,7 +238,7 @@ class ModelWrapper(AudioModelWrapper):
             # self.set_d_requires_grad(False)
             self.optim_g.zero_grad()
             loss_dict: Dict[str, torch.Tensor] = self.mel_loss(wav_g, wav_r)
-            with amp.autocast(enabled=self.fp16_d):
+            with amp.autocast("cuda", enabled=self.fp16_d):
                 loss_dict.update(self.fm_loss_fn(fmaps_g, fmaps_r))
                 loss_dict.update(self.g_loss_fn(logits_g))
             self.balancer.add_loss(loss_dict, batch_size)
@@ -261,7 +265,7 @@ class ModelWrapper(AudioModelWrapper):
             r0, r1 = self.disc_update_ratio[0], self.disc_update_ratio[1]
             if idx % r1 < r0:
                 self.optim_d.zero_grad()
-                with amp.autocast(enabled=self.fp16_d):
+                with amp.autocast("cuda", enabled=self.fp16_d):
                     loss_d = self.d_loss_fn(logits_g, logits_r)
 
                 self.scaler_d.scale(loss_d).backward(inputs=self.disc_parameters)
@@ -339,7 +343,7 @@ class ModelWrapper(AudioModelWrapper):
             batch_size = wav_r.size(0)
             self.balancer.add_n_items(batch_size)
 
-            with amp.autocast(enabled=self.fp16_g):
+            with amp.autocast("cuda", enabled=self.fp16_g):
                 wav_g, _, loss_vq = self._module(wav_r, n=self.infer_n)
                 if self.lookahead > 0:
                     wav_r = wav_r[:, :, :-self.lookahead]
@@ -347,7 +351,7 @@ class ModelWrapper(AudioModelWrapper):
 
             loss_dict = {'vq': loss_vq}
             loss_dict.update(self.mel_loss(wav_g, wav_r))
-            with amp.autocast(enabled=self.fp16_d):
+            with amp.autocast("cuda", enabled=self.fp16_d):
                 logits_g, fmaps_g = self.disc(wav_g)
                 logits_r, fmaps_r = self.disc(wav_r)
                 loss_dict["d"] = self.d_loss_fn(logits_g, logits_r)
@@ -365,7 +369,7 @@ class ModelWrapper(AudioModelWrapper):
 
             batch_wav_len = wav_r.size(-1) // self.hop_size * self.hop_size
             wav_r = wav_r[:, :, :batch_wav_len]
-            with amp.autocast(enabled=self.fp16_g):
+            with amp.autocast("cuda", enabled=self.fp16_g):
                 wav_g, *_ = self._module(wav_r, n=self.infer_n)
                 if self.lookahead > 0:
                     wav_r = wav_r[:, :, :-self.lookahead]
